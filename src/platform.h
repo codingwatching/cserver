@@ -92,6 +92,7 @@ API void DataBuffer_Lock(DataBuffer *dbuf);
 API void DataBuffer_Unlock(DataBuffer *dbuf);
 API cs_int32 DataBuffer_Push(DataBuffer *dbuf, cs_char *data, cs_int32 len);
 API cs_int32 DataBuffer_Pop(DataBuffer *dbuf, cs_char *data, cs_int32 len);
+API cs_int32 DataBuffer_Peek(DataBuffer *dbuf, cs_char *data, cs_int32 len);
 API void DataBuffer_Free(DataBuffer *dbuf);
 
 API cs_bool Iter_Init(DirIter *iter, cs_str path, cs_str ext);

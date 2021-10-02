@@ -75,6 +75,18 @@ cs_int32 DataBuffer_Pop(DataBuffer *dbuf, cs_char *data, cs_int32 len) {
 	return readed;
 }
 
+cs_int32 DataBuffer_Peek(DataBuffer *dbuf, cs_char *data, cs_int32 len) {
+	cs_int32 rptr = dbuf->rptr, readed = 0;
+
+	while(readed < len) {
+		data[readed++] = dbuf->data[rptr];
+		rptr = (dbuf->rptr + 1) % DBUF_SIZE;
+		if(rptr == dbuf->wptr) break;
+	}
+
+	return readed;
+}
+
 void DataBuffer_Free(DataBuffer *dbuf) {
 	Memory_Free(dbuf);
 }
