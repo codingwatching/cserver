@@ -10,18 +10,12 @@ if(!Client_CheckState(client, st)) \
 #define ValidateCpeClient(client, ret) \
 if(!client->cpeData) return ret;
 
-#define PacketWriter_Start(client) \
-if(client->closed) return; \
-cs_char *data = client->wrbuf; \
-Mutex_Lock(client->mutex);
+#define PacketWriter_Start(client) (void)client; \
+cs_char *data = NULL;
 
-#define PacketWriter_End(client, size) \
-if (Client_Send(client, size) != size) \
-	client->closed = true; \
-Mutex_Unlock(client->mutex);
+#define PacketWriter_End(client, size) (void)client; (void)(size);
 
 #define PacketWriter_Stop(client) \
-Mutex_Unlock(client->mutex); \
 return;
 
 #define PROTOCOL_VERSION 0x07

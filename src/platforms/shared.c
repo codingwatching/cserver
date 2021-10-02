@@ -31,6 +31,48 @@ void Memory_Fill(void *dst, cs_size count, cs_byte val) {
 	while(count--) *u8dst++ = val;
 }
 
+DataBuffer *DataBuffer_New(void) {
+	DataBuffer *dbuf = (DataBuffer *)Memory_Alloc(1, sizeof(DataBuffer));
+	dbuf->mutex = Mutex_Create();
+	return dbuf;
+}
+
+void DataBuffer_Lock(DataBuffer *dbuf) {
+	Mutex_Lock(dbuf->mutex);
+}
+
+void DataBuffer_Unlock(DataBuffer *dbuf) {
+	Mutex_Unlock(dbuf->mutex);
+}
+
+cs_int32 DataBuffer_Push(DataBuffer *dbuf, cs_char *data, cs_int32 len) {
+	cs_int32 written = 0;
+
+	while(written < len) {
+		dbuf->data[dbuf->wptr] = data[written++];
+		dbuf->wptr = (dbuf->wptr + 1) % DBUF_SIZE;
+		if(dbuf->wptr == dbuf->rptr) break;
+	}
+
+	return written;
+}
+
+cs_int32 DataBuffer_Pop(DataBuffer *dbuf, cs_char *data, cs_int32 len) {
+	cs_int32 readed = 0;
+
+	while(readed < len) {
+		data[readed++] = dbuf->data[dbuf->rptr];
+		dbuf->rptr = (dbuf->rptr + 1) % DBUF_SIZE;
+		if(dbuf->rptr == dbuf->wptr) break;
+	}
+
+	return readed;
+}
+
+void DataBuffer_Free(DataBuffer *dbuf) {
+	Memory_Free(dbuf);
+}
+
 cs_file File_Open(cs_str path, cs_str mode) {
 	return fopen(path, mode);
 }
@@ -122,13 +164,11 @@ Socket Socket_New(void) {
 
 cs_bool Socket_Bind(Socket sock, struct sockaddr_in *addr) {
 #if defined(UNIX)
-	if(setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &(cs_int32){1}, 4) == -1) {
+	if(setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &(cs_int32){1}, 4) == -1)
 		return false;
-	}
 #elif defined(WINDOWS)
-	if(setsockopt(sock, SOL_SOCKET, SO_DONTLINGER, (void*)&(cs_int32){0}, 4) == -1) {
+	if(setsockopt(sock, SOL_SOCKET, SO_DONTLINGER, (void*)&(cs_int32){0}, 4) == -1)
 		return false;
-	}
 #endif
 
 	if(bind(sock, (const struct sockaddr *)addr, sizeof(struct sockaddr_in)) == -1) {

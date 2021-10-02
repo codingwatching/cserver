@@ -65,6 +65,14 @@ typedef struct _DirIter {
 	ITER_FILE fileHandle;
 } DirIter;
 
+#define DBUF_SIZE 2048
+
+typedef struct _DataBuffer {
+	cs_char data[DBUF_SIZE];
+	cs_int32 wptr, rptr;
+	Mutex *mutex;
+} DataBuffer;
+
 #define Memory_Zero(p, c) Memory_Fill(p, c, 0)
 
 cs_bool Memory_Init(void);
@@ -78,6 +86,13 @@ API void *Memory_Realloc(void *oldptr, cs_size new);
 API void  Memory_Copy(void *dst, const void *src, cs_size count);
 API void  Memory_Fill(void *dst, cs_size count, cs_byte val);
 API void  Memory_Free(void *ptr);
+
+API DataBuffer *DataBuffer_New(void);
+API void DataBuffer_Lock(DataBuffer *dbuf);
+API void DataBuffer_Unlock(DataBuffer *dbuf);
+API cs_int32 DataBuffer_Push(DataBuffer *dbuf, cs_char *data, cs_int32 len);
+API cs_int32 DataBuffer_Pop(DataBuffer *dbuf, cs_char *data, cs_int32 len);
+API void DataBuffer_Free(DataBuffer *dbuf);
 
 API cs_bool Iter_Init(DirIter *iter, cs_str path, cs_str ext);
 API cs_bool Iter_Next(DirIter *iter);
@@ -110,6 +125,7 @@ cs_bool DLib_GetSym(void *lib, cs_str sname, void *sym);
 cs_bool Socket_Init(void);
 void Socket_Uninit(void);
 API Socket Socket_New(void);
+API cs_bool Socket_NonBlocking(Socket sock, cs_bool enabled);
 API cs_int32 Socket_SetAddr(struct sockaddr_in *ssa, cs_str ip, cs_uint16 port);
 API cs_bool Socket_SetAddrGuess(struct sockaddr_in *ssa, cs_str host, cs_uint16 port);
 API cs_bool Socket_Bind(Socket sock, struct sockaddr_in *ssa);

@@ -688,10 +688,6 @@ cs_bool Client_Update(Client *client) {
 }
 
 void Client_Free(Client *client) {
-	if(client->mutex) {
-		Mutex_Free(client->mutex);
-		client->mutex = NULL;
-	}
 	if(client->websock) {
 		Memory_Free(client->websock);
 		client->websock = NULL;
@@ -725,175 +721,161 @@ void Client_Free(Client *client) {
 }
 
 cs_int32 Client_Send(Client *client, cs_int32 len) {
-	if(client->closed) return 0;
-	if(client == Broadcast) {
-		for(ClientID i = 0; i < MAX_CLIENTS; i++) {
-			Client *bClient = Clients_List[i];
+	// if(client->closed) return 0;
+	// if(client == Broadcast) {
+	// 	for(ClientID i = 0; i < MAX_CLIENTS; i++) {
+	// 		Client *bClient = Clients_List[i];
 
-			if(bClient && !bClient->closed) {
-				Mutex_Lock(bClient->mutex);
-				if(bClient->websock)
-					WebSock_SendFrame(bClient->websock, 0x02, client->wrbuf, (cs_uint16)len);
-				else
-					Socket_Send(client->sock, client->wrbuf, len);
-				Mutex_Unlock(bClient->mutex);
-			}
-		}
-		return len;
-	}
+	// 		if(bClient && !bClient->closed) {
+	// 			Mutex_Lock(bClient->mutex);
+	// 			if(bClient->websock)
+	// 				WebSock_SendFrame(bClient->websock, 0x02, client->wrbuf, (cs_uint16)len);
+	// 			else
+	// 				Socket_Send(client->sock, client->wrbuf, len);
+	// 			Mutex_Unlock(bClient->mutex);
+	// 		}
+	// 	}
+	// 	return len;
+	// }
 
-	if(client->websock)
-		return WebSock_SendFrame(client->websock, 0x02, client->wrbuf, (cs_uint16)len) ? len : 0;
-	else
-		return Socket_Send(client->sock, client->wrbuf, len);
+	// if(client->websock)
+	// 	return WebSock_SendFrame(client->websock, 0x02, client->wrbuf, (cs_uint16)len) ? len : 0;
+	// else
+	// 	return Socket_Send(client->sock, client->wrbuf, len);
 }
 
 INL static void PacketReceiverWs(Client *client) {
-	cs_byte packetId;
-	Packet *packet;
-	cs_bool extended = false;
-	cs_uint16 packetSize, recvSize;
-	cs_char *data = client->rdbuf;
+	// cs_byte packetId;
+	// Packet *packet;
+	// cs_bool extended = false;
+	// cs_uint16 packetSize, recvSize;
+	// cs_char *data = client->rdbuf;
 
-	if(WebSock_ReceiveFrame(client->websock)) {
-		if(client->websock->opcode == 0x08) {
-			client->closed = true;
-			return;
-		}
+	// if(WebSock_ReceiveFrame(client->websock)) {
+	// 	if(client->websock->opcode == 0x08) {
+	// 		client->closed = true;
+	// 		return;
+	// 	}
 
-		recvSize = client->websock->plen - 1;
-		packet_handle:
-		packetId = *data++;
-		packet = Packet_Get(packetId);
-		if(!packet) {
-			Client_KickFormat(client, Sstor_Get("KICK_PERR_NOHANDLER"), packetId);
-			return;
-		}
+	// 	recvSize = client->websock->plen - 1;
+	// 	packet_handle:
+	// 	packetId = *data++;
+	// 	packet = Packet_Get(packetId);
+	// 	if(!packet) {
+	// 		Client_KickFormat(client, Sstor_Get("KICK_PERR_NOHANDLER"), packetId);
+	// 		return;
+	// 	}
 
-		packetSize = GetPacketSizeFor(packet, client, &extended);
+	// 	packetSize = GetPacketSizeFor(packet, client, &extended);
 
-		if(packetSize <= recvSize) {
-			HandlePacket(client, data, packet, extended);
-			if(recvSize > packetSize) {
-				data += packetSize;
-				recvSize -= packetSize + 1;
-				goto packet_handle;
-			}
+	// 	if(packetSize <= recvSize) {
+	// 		HandlePacket(client, data, packet, extended);
+	// 		if(recvSize > packetSize) {
+	// 			data += packetSize;
+	// 			recvSize -= packetSize + 1;
+	// 			goto packet_handle;
+	// 		}
 
-			return;
-		} else Client_Kick(client, Sstor_Get("KICK_PERR_WS"));
-	} else
-		client->closed = true;
+	// 		return;
+	// 	} else Client_Kick(client, Sstor_Get("KICK_PERR_WS"));
+	// } else
+	// 	client->closed = true;
 }
 
 INL static void PacketReceiverRaw(Client *client) {
-	Packet *packet;
-	cs_uint16 packetSize;
-	cs_byte packetId;
-	cs_bool extended = false;
+	// Packet *packet;
+	// cs_uint16 packetSize;
+	// cs_byte packetId;
+	// cs_bool extended = false;
 
-	if(Socket_Receive(client->sock, (cs_char *)&packetId, 1, 0) == 1) {
-		packet = Packet_Get(packetId);
-		if(!packet) {
-			Client_KickFormat(client, Sstor_Get("KICK_PERR_NOHANDLER"), packetId);
-			return;
-		}
+	// if(Socket_Receive(client->sock, (cs_char *)&packetId, 1, 0) == 1) {
+	// 	packet = Packet_Get(packetId);
+	// 	if(!packet) {
+	// 		Client_KickFormat(client, Sstor_Get("KICK_PERR_NOHANDLER"), packetId);
+	// 		return;
+	// 	}
 
-		packetSize = GetPacketSizeFor(packet, client, &extended);
+	// 	packetSize = GetPacketSizeFor(packet, client, &extended);
 
-		if(packetSize > 0) {
-			cs_int32 len = Socket_Receive(client->sock, client->rdbuf, packetSize, MSG_WAITALL);
+	// 	if(packetSize > 0) {
+	// 		cs_int32 len = Socket_Receive(client->sock, client->rdbuf, packetSize, MSG_WAITALL);
 
-			if(packetSize == len)
-				HandlePacket(client, client->rdbuf, packet, extended);
-			else client->closed = true;
-		}
-	} else client->closed = true;
+	// 		if(packetSize == len)
+	// 			HandlePacket(client, client->rdbuf, packet, extended);
+	// 		else client->closed = true;
+	// 	}
+	// } else client->closed = true;
 }
 
 NOINL static void SendWorld(Client *client, World *world) {
-	if(!world->loaded) Waitable_Wait(world->waitable);
+	// if(!world->loaded) Waitable_Wait(world->waitable);
 
-	if(!world->loaded) {
-		Client_Kick(client, Sstor_Get("KICK_INT"));
-		return;
-	}
+	// if(!world->loaded) {
+	// 	Client_Kick(client, Sstor_Get("KICK_INT"));
+	// 	return;
+	// }
 
-	cs_bool hasfastmap = Client_GetExtVer(client, EXT_FASTMAP) == 1;
-	cs_uint32 wsize = 0;
-	cs_bool compr_ok;
+	// cs_bool hasfastmap = Client_GetExtVer(client, EXT_FASTMAP) == 1;
+	// cs_uint32 wsize = 0;
+	// cs_bool compr_ok;
 
-	if(hasfastmap) {
-		compr_ok = Compr_Init(&client->compr, COMPR_TYPE_DEFLATE);
-		if(compr_ok) {
-			cs_byte *map = World_GetBlockArray(world, &wsize);
-			Compr_SetInBuffer(&client->compr, map, wsize);
-		}
-		CPE_WriteFastMapInit(client, World_GetBlockArraySize(world));
-	} else {
-		compr_ok = Compr_Init(&client->compr, COMPR_TYPE_GZIP);
-		if(compr_ok) {
-			cs_byte *map = World_GetData(world, &wsize);
-			Compr_SetInBuffer(&client->compr, map, wsize);
-		}
-		Vanilla_WriteLvlInit(client);
-	}
+	// if(hasfastmap) {
+	// 	compr_ok = Compr_Init(&client->compr, COMPR_TYPE_DEFLATE);
+	// 	if(compr_ok) {
+	// 		cs_byte *map = World_GetBlockArray(world, &wsize);
+	// 		Compr_SetInBuffer(&client->compr, map, wsize);
+	// 	}
+	// 	CPE_WriteFastMapInit(client, World_GetBlockArraySize(world));
+	// } else {
+	// 	compr_ok = Compr_Init(&client->compr, COMPR_TYPE_GZIP);
+	// 	if(compr_ok) {
+	// 		cs_byte *map = World_GetData(world, &wsize);
+	// 		Compr_SetInBuffer(&client->compr, map, wsize);
+	// 	}
+	// 	Vanilla_WriteLvlInit(client);
+	// }
 
-	if(compr_ok) {
-		cs_byte *data = (cs_byte *)client->wrbuf;
-		cs_uint16 *len = (cs_uint16 *)(data + 1);
-		cs_byte *cmpdata = data + 3;
-		cs_byte *progr = data + 1028;
+	// if(compr_ok) {
+	// 	cs_byte *data = (cs_byte *)client->wrbuf;
+	// 	cs_uint16 *len = (cs_uint16 *)(data + 1);
+	// 	cs_byte *cmpdata = data + 3;
+	// 	cs_byte *progr = data + 1028;
 
-		do {
-			if(!compr_ok || client->closed) break;
-			Mutex_Lock(client->mutex);
-			*data = 0x03;
-			Compr_SetOutBuffer(&client->compr, cmpdata, 1024);
-			if((compr_ok = Compr_Update(&client->compr)) == true) {
-				if(!client->closed && client->compr.written) {
-					*len = htons((cs_uint16)client->compr.written);
-					*progr = 100 - (cs_byte)((cs_float)client->compr.queued / wsize * 100);
-					compr_ok = Client_Send(client, 1028) == 1028;
-				}
-			}
-			Mutex_Unlock(client->mutex);
-		} while(client->compr.state != COMPR_STATE_DONE);
+	// 	do {
+	// 		if(!compr_ok || client->closed) break;
+	// 		Mutex_Lock(client->mutex);
+	// 		*data = 0x03;
+	// 		Compr_SetOutBuffer(&client->compr, cmpdata, 1024);
+	// 		if((compr_ok = Compr_Update(&client->compr)) == true) {
+	// 			if(!client->closed && client->compr.written) {
+	// 				*len = htons((cs_uint16)client->compr.written);
+	// 				*progr = 100 - (cs_byte)((cs_float)client->compr.queued / wsize * 100);
+	// 				compr_ok = Client_Send(client, 1028) == 1028;
+	// 			}
+	// 		}
+	// 		Mutex_Unlock(client->mutex);
+	// 	} while(client->compr.state != COMPR_STATE_DONE);
 
-		if(compr_ok) {
-			client->playerData->world = world;
-			client->playerData->state = PLAYER_STATE_INGAME;
-			client->playerData->position = world->info.spawnVec;
-			client->playerData->angle = world->info.spawnAng;
-			Event_Call(EVT_PRELVLFIN, client);
-			if(Client_GetExtVer(client, EXT_BLOCKDEF)) {
-				for(BlockID id = 0; id < 254; id++) {
-					BlockDef *bdef = Block_GetDefinition(id);
-					if(bdef) Client_DefineBlock(client, bdef);
-				}
-			}
-			Vanilla_WriteLvlFin(client, &world->info.dimensions);
-			Client_Spawn(client);
-		} else
-			Client_KickFormat(client, Sstor_Get("KICK_ZERR"), Compr_GetError(client->compr.ret));
+	// 	if(compr_ok) {
+	// 		client->playerData->world = world;
+	// 		client->playerData->state = PLAYER_STATE_INGAME;
+	// 		client->playerData->position = world->info.spawnVec;
+	// 		client->playerData->angle = world->info.spawnAng;
+	// 		Event_Call(EVT_PRELVLFIN, client);
+	// 		if(Client_GetExtVer(client, EXT_BLOCKDEF)) {
+	// 			for(BlockID id = 0; id < 254; id++) {
+	// 				BlockDef *bdef = Block_GetDefinition(id);
+	// 				if(bdef) Client_DefineBlock(client, bdef);
+	// 			}
+	// 		}
+	// 		Vanilla_WriteLvlFin(client, &world->info.dimensions);
+	// 		Client_Spawn(client);
+	// 	} else
+	// 		Client_KickFormat(client, Sstor_Get("KICK_ZERR"), Compr_GetError(client->compr.ret));
 
-		Compr_Reset(&client->compr);
-	} else
-		Client_KickFormat(client, Sstor_Get("KICK_ZERR"), Compr_GetError(client->compr.ret));
-}
-
-void Client_Loop(Client *client) {
-	while(!client->closed) {
-		if(client->websock)
-			PacketReceiverWs(client);
-		else
-			PacketReceiverRaw(client);
-
-		if(client->playerData && client->playerData->reqWorldChange) {
-			SendWorld(client, client->playerData->reqWorldChange);
-			client->playerData->reqWorldChange = NULL;
-		}
-	}
+	// 	Compr_Reset(&client->compr);
+	// } else
+	// 	Client_KickFormat(client, Sstor_Get("KICK_ZERR"), Compr_GetError(client->compr.ret));
 }
 
 INL static void SendSpawnPacket(Client *client, Client *other) {
@@ -946,11 +928,6 @@ void Client_Kick(Client *client, cs_str reason) {
 	if(!reason) reason = Sstor_Get("KICK_NOREASON");
 	Vanilla_WriteKick(client, reason);
 	client->closed = true;
-	Mutex_Lock(client->mutex);
-	Socket_Shutdown(client->sock, SD_SEND);
-	while(Socket_Receive(client->sock, client->rdbuf, 134, 0) > 0);
-	Socket_Close(client->sock);
-	Mutex_Unlock(client->mutex);
 }
 
 void Client_KickFormat(Client *client, cs_str fmtreason, ...) {

@@ -49,6 +49,13 @@ cs_bool Socket_Init(void) {
 	return true;
 }
 
+cs_bool Socket_NonBlocking(Socket sock, cs_bool enabled) {
+	cs_int32 flags = fcntl(sock, F_GETFL, 0);
+	if(flags == -1) return false;
+	flags = enabled ? (flags | O_NONBLOCK) : (flags & ~O_NONBLOCK);
+	return fcntl(sock, F_SETFL, flags) == 0;
+}
+
 void Socket_Close(Socket n) {
 	close(n);
 }

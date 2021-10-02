@@ -20,40 +20,6 @@ cs_str Server_Version = GIT_COMMIT_TAG;
 cs_bool Server_Active = false, Server_Ready = false;
 cs_uint64 Server_StartTime = 0, Server_LatestBadTick = 0;
 Socket Server_Socket = 0;
-Thread ClientThreads[MAX_CLIENTS] = {0};
-
-THREAD_FUNC(ClientInitThread) {
-	Client *client = (Client *)param;
-	client->canBeFreed = false;
-	cs_byte attempt = 0;
-	while(attempt < 10) {
-		if(Socket_Receive(client->sock, client->rdbuf, 5, MSG_PEEK) == 5) {
-			if(String_CaselessCompare2(client->rdbuf, "GET /", 5)) {
-				WebSock *wscl = Memory_Alloc(1, sizeof(WebSock));
-				wscl->proto = "ClassiCube";
-				wscl->recvbuf = client->rdbuf;
-				wscl->sock = client->sock;
-				client->websock = wscl;
-				if(WebSock_DoHandshake(wscl))
-					break;
-				else attempt = 10;
-			} else break;
-		}
-		Thread_Sleep(100);
-		attempt++;
-	}
-
-	if(attempt < 10)
-		Client_Loop(client);
-	else
-		Client_Kick(client, Sstor_Get("KICK_PERR_HS"));
-
-	if(client->id >= 0)
-		ClientThreads[client->id] = (Thread)0;
-
-	client->canBeFreed = true;
-	return 0;
-}
 
 INL static ClientID TryToGetIDFor(Client *client) {
 	cs_int8 maxConnPerIP = Config_GetInt8ByKey(Server_Config, CFG_CONN_KEY),
@@ -76,47 +42,26 @@ INL static ClientID TryToGetIDFor(Client *client) {
 	return possibleId;
 }
 
-INL static void WaitAllClientThreads(void) {
-	for(ClientID i = 0; i < MAX_CLIENTS; i++) {
-		Thread th = ClientThreads[i];
-		if(Thread_IsValid(th))
-			Thread_Join(th);
-	}
+INL static void ProcessClient(Socket sock, cs_ulong addr) {
+	Client *client = Memory_TryAlloc(1, sizeof(Client));
+	if(client) {
+		client->addr = addr;
+		client->id = TryToGetIDFor(client);
+		if(client->id != CLIENT_SELF) {
+			Client_Kick(client, Sstor_Get("KICK_FULL"));
+			return;
+		}
+	} else Socket_Close(sock);
 }
 
-THREAD_FUNC(SockAcceptThread) {
+THREAD_FUNC(NetThread) {
 	(void)param;
-	struct sockaddr_in caddr;
 
+	struct sockaddr_in claddr;
 	while(Server_Active) {
-		Socket fd = Socket_Accept(Server_Socket, &caddr);
-		if(fd == INVALID_SOCKET) break;
-		if(!Server_Active) {
-			Socket_Close(fd);
-			break;
-		}
-
-		Client *tmp = Memory_TryAlloc(1, sizeof(Client));
-		if(tmp) {
-			tmp->sock = fd;
-			tmp->canBeFreed = true;
-			tmp->mutex = Mutex_Create();
-			tmp->addr = caddr.sin_addr.s_addr;
-			tmp->id = TryToGetIDFor(tmp);
-			if(tmp->id != CLIENT_SELF) {
-				Clients_List[tmp->id] = tmp;
-				ClientThreads[tmp->id] = Thread_Create(ClientInitThread, tmp, false);
-			} else {
-				Client_Kick(tmp, Sstor_Get("KICK_FULL"));
-				Client_Free(tmp);
-			}
-		} else
-			Socket_Close(fd);
-	}
-
-	if(Server_Active) {
-		Error_PrintSys(false);
-		Server_Active = false;
+		Socket sock = Socket_Accept(Server_Socket, &claddr);
+		if(sock != INVALID_SOCKET) ProcessClient(sock, claddr.sin_addr.s_addr);
+		Thread_Sleep(32);
 	}
 
 	return 0;
@@ -129,7 +74,7 @@ INL static cs_bool Bind(cs_str ip, cs_uint16 port) {
 	}
 	struct sockaddr_in ssa;
 	
-	if(Socket_SetAddr(&ssa, ip, port) > 0 && Socket_Bind(Server_Socket, &ssa)) {
+	if(Socket_SetAddr(&ssa, ip, port) > 0 && Socket_Bind(Server_Socket, &ssa) && Socket_NonBlocking(Server_Socket, true)) {
 		Log_Info(Sstor_Get("SV_START"), ip, port);
 		return true;
 	}
@@ -209,7 +154,6 @@ cs_bool Server_Init(void) {
 	Log_SetLevelStr(Config_GetStrByKey(cfg, CFG_LOGLEVEL_KEY));
 
 	Broadcast = Memory_Alloc(1, sizeof(Client));
-	Broadcast->mutex = Mutex_Create();
 	Packet_RegisterDefault();
 	Plugin_LoadAll();
 
@@ -333,7 +277,7 @@ cs_bool Server_Init(void) {
 		Event_Call(EVT_POSTSTART, NULL);
 		if(ConsoleIO_Init())
 			Log_Info(Sstor_Get("SV_STOPNOTE"));
-		Thread_Create(SockAcceptThread, NULL, true);
+		Thread_Create(NetThread, NULL, true);
 		Server_Ready = true;
 		return true;
 	}
@@ -405,8 +349,6 @@ INL static void UnloadAllWorlds(void) {
 void Server_Cleanup(void) {
 	Log_Info(Sstor_Get("SV_STOP_PL"));
 	Clients_KickAll(Sstor_Get("KICK_STOP"));
-	WaitAllClientThreads();
-	if(Broadcast && Broadcast->mutex) Mutex_Free(Broadcast->mutex);
 	if(Broadcast) Memory_Free(Broadcast);
 	Log_Info(Sstor_Get("SV_STOP_SW"));
 	UnloadAllWorlds();

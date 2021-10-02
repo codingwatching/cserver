@@ -47,6 +47,11 @@ cs_bool Socket_Init(void) {
 	return WSAStartup(MAKEWORD(2, 2), &ws) != SOCKET_ERROR;
 }
 
+cs_bool Socket_NonBlocking(Socket sock, cs_bool enabled) {
+	cs_ulong mode = enabled ? 1L : 0L;
+	return ioctlsocket(sock, FIONBIO, &mode) == NO_ERROR;
+}
+
 void Socket_Close(Socket n) {
 	closesocket(n);
 }
