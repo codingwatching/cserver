@@ -69,7 +69,7 @@ typedef struct _DirIter {
 
 typedef struct _DataBuffer {
 	cs_char data[DBUF_SIZE];
-	cs_int32 wptr, rptr;
+	cs_int32 wptr, rptr, avail;
 	Mutex *mutex;
 } DataBuffer;
 
@@ -132,6 +132,7 @@ API cs_bool Socket_Bind(Socket sock, struct sockaddr_in *ssa);
 API cs_bool Socket_Connect(Socket sock, struct sockaddr_in *ssa);
 API Socket Socket_Accept(Socket sock, struct sockaddr_in *addr);
 API cs_int32 Socket_Receive(Socket sock, cs_char *buf, cs_int32 len, cs_int32 flags);
+API cs_int32 Socket_ReceiveToBuffer(Socket sock, DataBuffer *dbuf, cs_int32 flags);
 API cs_int32 Socket_ReceiveLine(Socket sock, cs_char *line, cs_int32 len);
 API cs_int32 Socket_Send(Socket sock, const cs_char *buf, cs_int32 len);
 API void Socket_Shutdown(Socket sock, cs_int32 how);
