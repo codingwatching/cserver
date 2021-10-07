@@ -89,8 +89,7 @@ typedef struct _Client {
 	PlayerData *playerData; // Создаётся при получении hanshake пакета
 	KListField *headNode; // Последняя созданная ассоциативная нода у клиента
 	WebSock *websock; // Создаётся, если клиент был определён как браузерный
-	DataBuffer *wbuf; // Буфер отправки данных клиенту
-	DataBuffer *rbuf; // Буфер полученных данных от клиента
+	PacketManager pm;
 } Client;
 
 void Client_Tick(Client *client, cs_int32 delta);

@@ -31,66 +31,6 @@ void Memory_Fill(void *dst, cs_size count, cs_byte val) {
 	while(count--) *u8dst++ = val;
 }
 
-DataBuffer *DataBuffer_New(void) {
-	DataBuffer *dbuf = (DataBuffer *)Memory_Alloc(1, sizeof(DataBuffer));
-	dbuf->mutex = Mutex_Create();
-	return dbuf;
-}
-
-void DataBuffer_Lock(DataBuffer *dbuf) {
-	Mutex_Lock(dbuf->mutex);
-}
-
-void DataBuffer_Unlock(DataBuffer *dbuf) {
-	Mutex_Unlock(dbuf->mutex);
-}
-
-cs_int32 DataBuffer_AvailSpace(DataBuffer *dbuf) {
-	return DBUF_SIZE - dbuf->avail;
-}
-
-cs_int32 DataBuffer_Push(DataBuffer *dbuf, cs_char *data, cs_int32 len) {
-	cs_int32 written = 0;
-
-	while(written < len) {
-		dbuf->data[dbuf->wptr] = data[written++];
-		dbuf->wptr = (dbuf->wptr + 1) % DBUF_SIZE;
-		if(dbuf->wptr == dbuf->rptr) break;
-	}
-
-	dbuf->avail += written;
-	return written;
-}
-
-cs_int32 DataBuffer_Pop(DataBuffer *dbuf, cs_char *data, cs_int32 len) {
-	cs_int32 readed = 0;
-
-	while(readed < len) {
-		data[readed++] = dbuf->data[dbuf->rptr];
-		dbuf->rptr = (dbuf->rptr + 1) % DBUF_SIZE;
-		if(dbuf->rptr == dbuf->wptr) break;
-	}
-
-	dbuf->avail -= readed;
-	return readed;
-}
-
-cs_int32 DataBuffer_Peek(DataBuffer *dbuf, cs_char *data, cs_int32 len) {
-	cs_int32 rptr = dbuf->rptr, readed = 0;
-
-	while(readed < len) {
-		data[readed++] = dbuf->data[rptr];
-		rptr = (dbuf->rptr + 1) % DBUF_SIZE;
-		if(rptr == dbuf->wptr) break;
-	}
-
-	return readed;
-}
-
-void DataBuffer_Free(DataBuffer *dbuf) {
-	Memory_Free(dbuf);
-}
-
 cs_file File_Open(cs_str path, cs_str mode) {
 	return fopen(path, mode);
 }
@@ -212,15 +152,6 @@ Socket Socket_Accept(Socket sock, struct sockaddr_in *addr) {
 
 cs_int32 Socket_Receive(Socket sock, cs_char *buf, cs_int32 len, cs_int32 flags) {
 	return recv(sock, buf, len, MSG_NOSIGNAL | flags);
-}
-
-cs_int32 Socket_ReceiveToBuffer(Socket sock, DataBuffer *dbuf, cs_int32 flags) {
-	cs_char data[128];
-	cs_int32 bavsp = DataBuffer_AvailSpace(dbuf);
-	if(bavsp == 0) return 0;
-	cs_int32 ret = Socket_Receive(sock, data, min(128, bavsp), 0);
-	if(ret > 0) return DataBuffer_Push(dbuf, data, ret);
-	else return ret;
 }
 
 cs_int32 Socket_ReceiveLine(Socket sock, cs_char *line, cs_int32 len) {

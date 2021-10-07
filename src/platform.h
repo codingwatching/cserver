@@ -65,14 +65,6 @@ typedef struct _DirIter {
 	ITER_FILE fileHandle;
 } DirIter;
 
-#define DBUF_SIZE 2048
-
-typedef struct _DataBuffer {
-	cs_char data[DBUF_SIZE];
-	cs_int32 wptr, rptr, avail;
-	Mutex *mutex;
-} DataBuffer;
-
 #define Memory_Zero(p, c) Memory_Fill(p, c, 0)
 
 cs_bool Memory_Init(void);
@@ -86,14 +78,6 @@ API void *Memory_Realloc(void *oldptr, cs_size new);
 API void  Memory_Copy(void *dst, const void *src, cs_size count);
 API void  Memory_Fill(void *dst, cs_size count, cs_byte val);
 API void  Memory_Free(void *ptr);
-
-API DataBuffer *DataBuffer_New(void);
-API void DataBuffer_Lock(DataBuffer *dbuf);
-API void DataBuffer_Unlock(DataBuffer *dbuf);
-API cs_int32 DataBuffer_Push(DataBuffer *dbuf, cs_char *data, cs_int32 len);
-API cs_int32 DataBuffer_Pop(DataBuffer *dbuf, cs_char *data, cs_int32 len);
-API cs_int32 DataBuffer_Peek(DataBuffer *dbuf, cs_char *data, cs_int32 len);
-API void DataBuffer_Free(DataBuffer *dbuf);
 
 API cs_bool Iter_Init(DirIter *iter, cs_str path, cs_str ext);
 API cs_bool Iter_Next(DirIter *iter);
@@ -133,7 +117,6 @@ API cs_bool Socket_Bind(Socket sock, struct sockaddr_in *ssa);
 API cs_bool Socket_Connect(Socket sock, struct sockaddr_in *ssa);
 API Socket Socket_Accept(Socket sock, struct sockaddr_in *addr);
 API cs_int32 Socket_Receive(Socket sock, cs_char *buf, cs_int32 len, cs_int32 flags);
-API cs_int32 Socket_ReceiveToBuffer(Socket sock, DataBuffer *dbuf, cs_int32 flags);
 API cs_int32 Socket_ReceiveLine(Socket sock, cs_char *line, cs_int32 len);
 API cs_int32 Socket_Send(Socket sock, const cs_char *buf, cs_int32 len);
 API void Socket_Shutdown(Socket sock, cs_int32 how);
