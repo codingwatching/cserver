@@ -31,14 +31,22 @@ INL cs_int16 GetPacketSizeFor(Client *client) {
 EPMReturn PacketManager_Step(Client *client) {
 	if(client->pm.state == PM_STATE_CLOSED) return PM_RETURN_SOCKETCLOSED;
 	if(client->pm.state == PM_STATE_DATAOK) return PM_RETURN_OK;
+	struct _PacketInfo *cpi = &pinf[client->pm.packetId];
 
 	if(client->pm.state == PM_STATE_INITIAL) {
 		if(Socket_Receive(client->sock, &client->pm.packetId, 1, 0) > 0) {
-			if((client->pm.need = GetPacketSizeFor(client)) != -1) {
-				if(client->pm.need > 0) {
+			cpi = &pinf[client->pm.packetId];
+
+			if(cpi->cpeextension && Client_GetExtVer(client, cpi->cpeextension) == cpi->cpeextversion)
+				client->pm.need = cpi->cpesize;
+			else
+				client->pm.need = cpi->size;
+			
+			if(client->pm.need != -1) {
+				if(client->pm.need) {
 					client->pm.state = PM_STATE_WAITDATA;
-					client->pm.buffer = Memory_Alloc(client->pm.need, 1);
 					client->pm.readed = 0;
+					client->pm.buffer = Memory_Alloc(client->pm.need, 1);
 				} else client->pm.state = PM_STATE_DATAOK;
 			} else return PM_RETURN_INVALIDPACKET;
 		} else {
@@ -52,7 +60,26 @@ EPMReturn PacketManager_Step(Client *client) {
 		cs_int16 rd = Socket_Receive(client->sock, client->pm.buffer + client->pm.readed, rem, 0);
 
 		if(rd > 0) {
-
+			client->pm.readed += rd;
+			if(client->pm.need == client->pm.readed)
+				client->pm.state = PM_STATE_DATAOK;
 		}
 	}
+
+	if(client->pm.state == PM_STATE_DATAOK) {
+		if(cpi->preader(client->pm.buffer, client->pm.readed, cpi->handler)) {
+			client->pm.state = PM_STATE_INITIAL;
+			Memory_Free(client->pm.buffer);
+			client->pm.packetId = 0xFF;
+			client->pm.buffer = NULL;
+			client->pm.readed = 0;
+			client->pm.need = 0;
+			return PM_RETURN_OK;
+		} else {
+			client->pm.state = PM_STATE_CLOSED;
+			return PM_RETURN_HANDLINGFAILED;
+		}
+	}
+
+	return PM_RETURN_FAIL;
 }

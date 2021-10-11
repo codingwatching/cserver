@@ -3,8 +3,8 @@
 #include "core.h"
 #include "client.h"
 
-typedef void *(*PacketReader)(cs_char *data, cs_int16 size, void *ud);
 typedef cs_bool(*PacketHandler)(Client *client, cs_byte id, cs_bool iscpe, void *data);
+typedef void *(*PacketReader)(cs_char *data, cs_int16 size, PacketHandler ph);
 
 typedef enum _EPRState {
 	PM_STATE_INITIAL,
@@ -15,9 +15,11 @@ typedef enum _EPRState {
 
 typedef enum _EPRReturn {
 	PM_RETURN_OK,
+	PM_RETURN_FAIL,
 	PM_RETURN_NOTREADY,
 	PM_RETURN_SOCKETCLOSED,
-	PM_RETURN_INVALIDPACKET
+	PM_RETURN_INVALIDPACKET,
+	PM_RETURN_HANDLINGFAILED
 } EPMReturn;
 
 typedef union _UPackets {
