@@ -1,14 +1,9 @@
 #include "core.h"
 #include "client.h"
 #include "protocol.h"
+#include "nethandlers.h"
 
-struct _PacketInfo {
-	cs_int16 size, cpesize;
-	cs_uint32 cpeextension;
-	cs_int32 cpeextversion;
-	PacketReader preader;
-	PacketHandler handler;
-} pinf[256];
+PacketInfo pinf[256];
 
 void Protocol_Init(void) {
 	for(cs_int32 i = 0; i < 256; i++) {
@@ -16,8 +11,14 @@ void Protocol_Init(void) {
 		pinf[i].cpesize = -1;
 		pinf[i].cpeextension = 0;
 		pinf[i].preader = NULL;
-		pinf[i].handler = NULL;
+		pinf[i].phandler = NULL;
 	}
+
+	NetHandlers_RegisterAll();
+}
+
+PacketInfo *Protocol_GetInfo(cs_byte id) {
+	return &pinf[id];
 }
 
 INL cs_int16 GetPacketSizeFor(Client *client) {
@@ -46,7 +47,13 @@ EPMReturn PacketManager_Step(Client *client) {
 				if(client->pm.need) {
 					client->pm.state = PM_STATE_WAITDATA;
 					client->pm.readed = 0;
-					client->pm.buffer = Memory_Alloc(client->pm.need, 1);
+					if(!client->pm.buffer.data) {
+						client->pm.buffer.size = client->pm.need;
+						client->pm.buffer.data = Memory_Alloc(client->pm.need, 1);
+					} else if(client->pm.buffer.size < client->pm.need) {
+						client->pm.buffer.size = client->pm.need;
+						client->pm.buffer.data = Memory_Realloc(client->pm.buffer.data, client->pm.need);
+					}
 				} else client->pm.state = PM_STATE_DATAOK;
 			} else return PM_RETURN_INVALIDPACKET;
 		} else {
@@ -57,7 +64,7 @@ EPMReturn PacketManager_Step(Client *client) {
 
 	if(client->pm.state == PM_STATE_WAITDATA) {
 		cs_int16 rem = client->pm.need - client->pm.readed;
-		cs_int16 rd = Socket_Receive(client->sock, client->pm.buffer + client->pm.readed, rem, 0);
+		cs_int16 rd = Socket_Receive(client->sock, client->pm.buffer.data + client->pm.readed, rem, 0);
 
 		if(rd > 0) {
 			client->pm.readed += rd;
@@ -67,11 +74,9 @@ EPMReturn PacketManager_Step(Client *client) {
 	}
 
 	if(client->pm.state == PM_STATE_DATAOK) {
-		if(cpi->preader(client->pm.buffer, client->pm.readed, cpi->handler)) {
+		if(cpi->preader(client->pm.buffer.data, client->pm.readed, cpi->phandler)) {
 			client->pm.state = PM_STATE_INITIAL;
-			Memory_Free(client->pm.buffer);
 			client->pm.packetId = 0xFF;
-			client->pm.buffer = NULL;
 			client->pm.readed = 0;
 			client->pm.need = 0;
 			return PM_RETURN_OK;

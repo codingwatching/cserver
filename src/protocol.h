@@ -22,23 +22,21 @@ typedef enum _EPRReturn {
 	PM_RETURN_HANDLINGFAILED
 } EPMReturn;
 
-typedef union _UPackets {
-	struct _IdentPacket {
-		cs_byte protocol;
-		cs_char name[65];
-		cs_char key[65];
-		cs_byte unused;
-	} ident;
-	struct _MessagePacket {
-		cs_char message[65];
-		cs_byte unused;
-	} mess;
-} UPackets;
-
 typedef struct _PacketManager {
 	EPMState state;
 	cs_int16 readed, need;
 	cs_byte packetId;
-	cs_char *buffer;
+	struct _Buffer {
+		cs_byte *data;
+		cs_size size;
+	} buffer;
 } PacketManager;
+
+typedef struct _PacketInfo {
+	cs_int16 size, cpesize;
+	cs_uint32 cpeextension;
+	cs_int32 cpeextversion;
+	PacketReader preader;
+	PacketHandler phandler;
+} PacketInfo;
 #endif
